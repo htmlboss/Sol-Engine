@@ -5,12 +5,18 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/mat4x4.hpp>
+#include <glm/gtx/hash.hpp>
 
 #include <array>
+#include <vector>
 
 // Describes a vertex in Vulkan
 struct Vertex {
 	Vertex(const glm::vec3& position, const glm::vec3& col, const glm::vec2& texcoords) : pos(position), color(col), texCoord(texcoords) {}
+
+	auto operator==(const Vertex& rhs) const {
+		return pos == rhs.pos && color == rhs.color && texCoord == rhs.texCoord;
+	}
 
 #ifdef VULKAN_H_
 	
@@ -56,21 +62,20 @@ struct Vertex {
 	glm::vec2 texCoord;
 };
 
+namespace std {
+	template<> 
+	struct hash<Vertex> {
+		auto operator()(Vertex const& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^
+				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+				(hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
+	};
+}
 
 // Temp junk
 struct UniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
-};
-
-const std::vector<Vertex> vertices {
-	{ { -0.5f, -0.5f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-	{ { 0.5f, -0.5f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-	{ { 0.5f, 0.5f, 0.0f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-	{ { -0.5f, 0.5f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } }
-};
-
-const std::vector<std::uint16_t> indices {
-	0, 1, 2, 2, 3, 0
 };

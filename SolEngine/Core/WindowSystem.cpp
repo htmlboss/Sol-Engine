@@ -2,7 +2,7 @@
 #include "Input.h"
 
 #include <GLFW/glfw3.h>
-#include <spdlog/spdlog.h>
+#include <Log/Log.h>
 
 GLFWwindow* WindowSystem::m_window = nullptr;
 
@@ -15,16 +15,15 @@ void WindowSystem::init() {
 	}
 
 	if (!glfwInit()) {
-		spdlog::get("console")->error("Failed to start GLFW.");
-		return;
+		LOG_CRITICAL("Failed to start GLFW.");
 	}
 	glfwSetErrorCallback([](const auto errorCode, const auto* message) 
 	{
-		spdlog::get("console")->error(message);
+		LOG_ERROR(message);
 	});
 
 #ifdef _DEBUG
-	spdlog::get("console")->info(glfwGetVersionString());
+	LOG_INFO(glfwGetVersionString());
 #endif
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ISystem.h"
+#include "Graphics/Mesh.h"
 
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
@@ -17,6 +18,8 @@ public:
 
 	RenderSystem(const RenderSystem&) = delete;
 	RenderSystem& operator=(const RenderSystem&) = delete;
+
+	void addMeshes(const std::vector<MeshPtr>& meshes);
 
 	void init() override;
 	void update(const float delta) override;
@@ -67,8 +70,11 @@ private:
 	// It can be applied to any image you want, whether it is 1D, 2D or 3D. 
 	// This is different from many older APIs, which combined texture images and filtering into a single state.
 	void createTextureSampler();
-	void createVertexBuffer();
-	void createIndexBuffer();
+	// Loops through given vector of MeshPtr's and instantiates the Vulkan-specific members (allocates memory, 
+	// create index + vertex buffers, etc).
+	void prepareMeshes();
+	void createVertexBuffer(MeshPtr& mesh);
+	void createIndexBuffer(MeshPtr& mesh);
 	void createUniformBuffer();
 	void createDescriptorPools();
 	void createDescriptorSet();
@@ -118,6 +124,9 @@ private:
 	// Creates a Vulkan shader module from loaded shader file.
 	VkShaderModule createShaderModule(const std::vector<char>& code) const;
 
+	// Holds all meshes to be rendered
+	std::vector<MeshPtr> m_meshes;
+
 	VkInstance m_instance;
 	
 	VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
@@ -128,7 +137,7 @@ private:
 
 	// Memory Allocation
 	VmaAllocator m_allocator;
-	VmaAllocation m_textureAllocation, m_depthAllocation, m_vertexBufferAllocation, m_indexBufferAllocation, m_uniformBufferAllocation;
+	VmaAllocation m_textureAllocation, m_depthAllocation, m_uniformBufferAllocation;
 	VmaAllocationInfo m_uniformBufferAllocInfo;
 
 	VkQueue m_graphicsQueue, m_presentQueue;
@@ -156,7 +165,7 @@ private:
 	VkImage m_textureImage, m_depthImage;
 	VkImageView m_textureImageView, m_depthImageView;
 	VkSampler m_textureSampler;
-	VkBuffer m_vertexBuffer, m_indexBuffer, m_uniformBuffer;
+	VkBuffer m_uniformBuffer;
 
 	VkDescriptorPool m_descriptorPool;
 	VkDescriptorSet m_descriptorSet;

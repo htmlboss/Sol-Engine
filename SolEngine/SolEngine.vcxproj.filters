@@ -11,6 +11,9 @@
     <Filter Include="Graphics">
       <UniqueIdentifier>{ef7eeb10-db18-4e43-96b4-e8cf2891a92a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Log">
+      <UniqueIdentifier>{731ca71e-05bf-4ceb-ab18-663434da8dc6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -50,6 +53,9 @@
     </ClInclude>
     <ClInclude Include="Graphics\Mesh.h">
       <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\Log.h">
+      <Filter>Log</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

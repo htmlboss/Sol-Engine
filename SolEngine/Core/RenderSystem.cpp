@@ -4,9 +4,9 @@
 #include "WindowSystem.h"
 #include "Input.h"
 #include "Graphics/Vertex.h"
+#include "Log/Log.h"
 
 #include <GLFW/GLFW3.h>
-#include <spdlog/spdlog.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -28,7 +28,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	const char*                 pMessage,
 	void*                       pUserData) {
 
-	spdlog::get("console")->error(pMessage);
+	LOG_ERROR(pMessage);
 
 	return VK_FALSE;
 }
@@ -104,6 +104,11 @@ VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, const 
 }
 
 /***********************************************************************************/
+void RenderSystem::addMeshes(const std::vector<MeshPtr>& meshes) {
+	m_meshes = meshes;
+}
+
+/***********************************************************************************/
 void RenderSystem::init() {
 	createInstance();
 #ifdef _DEBUG
@@ -124,8 +129,9 @@ void RenderSystem::init() {
 	createTextureImage();
 	createTextureImageView();
 	createTextureSampler();
-	createVertexBuffer();
-	createIndexBuffer();
+	prepareMeshes(); // TODO: Process mesh vector
+	//createVertexBuffer();
+	//createIndexBuffer();
 	createUniformBuffer();
 	createDescriptorPools();
 	createDescriptorSet();
@@ -214,10 +220,14 @@ void RenderSystem::shutdown() {
 
 	vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
+
+	// Cleanup mesh resources
+	for (auto& mesh : m_meshes) {
+		vmaDestroyBuffer(m_allocator, mesh->indexBuffer, mesh->indexBufferAllocation);
+		vmaDestroyBuffer(m_allocator, mesh->vertexBuffer, mesh->vertexBufferAllocation);
+	}
 	
 	vmaDestroyBuffer(m_allocator, m_uniformBuffer, m_uniformBufferAllocation);
-	vmaDestroyBuffer(m_allocator, m_indexBuffer, m_indexBufferAllocation);
-	vmaDestroyBuffer(m_allocator, m_vertexBuffer, m_vertexBufferAllocation);
 
 	vkDestroySemaphore(m_device, m_renderFinishedSemaphore, nullptr);
 	vkDestroySemaphore(m_device, m_imageAvailableSemaphore, nullptr);
@@ -246,8 +256,7 @@ void RenderSystem::waitDeviceIdle() const {
 void RenderSystem::createInstance() {
 #ifdef _DEBUG
 	if (!checkValidationLayerSupport()) {
-		spdlog::get("console")->error("Validation layers requested, but not available.");
-		std::abort();
+		LOG_CRITICAL("Validation layers requested, but not available.");
 	}
 #endif
 
@@ -274,16 +283,14 @@ void RenderSystem::createInstance() {
 #endif
 
 	if (vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create Vulkan instance.");
-		std::abort();
+		LOG_CRITICAL("Failed to create Vulkan instance.");
 	}
 }
 
 /***********************************************************************************/
 void RenderSystem::createSurface() {
 	if (glfwCreateWindowSurface(m_instance, WindowSystem::getWindowPtr(), nullptr, &m_surface) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create Vulkan surface.");
-		std::abort();
+		LOG_CRITICAL("Failed to create Vulkan surface.");
 	}
 }
 
@@ -293,8 +300,7 @@ void RenderSystem::pickPhysicalDevice() {
 	vkEnumeratePhysicalDevices(m_instance, &deviceCount, nullptr);
 
 	if (deviceCount == 0) {
-		spdlog::get("console")->error("Failed to find GPUs with Vulkan support.");
-		std::abort();
+		LOG_CRITICAL("Failed to find GPUs with Vulkan support.");
 	}
 
 	std::vector<VkPhysicalDevice> devices(deviceCount);
@@ -308,8 +314,7 @@ void RenderSystem::pickPhysicalDevice() {
 	}
 
 	if (m_physicalDevice == VK_NULL_HANDLE) {
-		spdlog::get("console")->error("Failed to find GPUs with Vulkan support.");
-		std::abort();
+		LOG_CRITICAL("Failed to find GPUs with Vulkan support.");
 	}
 }
 
@@ -349,8 +354,7 @@ void RenderSystem::createLogicalDevice() {
 #endif
 
 	if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create logical device.");
-		std::abort();
+		LOG_CRITICAL("Failed to create logical device.");
 	}
 
 	vkGetDeviceQueue(m_device, indices.graphicsFamily, 0, &m_graphicsQueue);
@@ -364,8 +368,7 @@ void RenderSystem::createMemoryAllocator() {
 	allocatorInfo.device = m_device;
 
 	if (vmaCreateAllocator(&allocatorInfo, &m_allocator) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create Vulkan Memory Allocator.");
-		std::abort();
+		LOG_CRITICAL("Failed to create Vulkan Memory Allocator.");
 	}
 }
 
@@ -412,8 +415,7 @@ void RenderSystem::createSwapChain() {
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
 	if (vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create swap chain.");
-		std::abort();
+		LOG_CRITICAL("Failed to create swap chain.");
 	}
 
 
@@ -493,13 +495,13 @@ void RenderSystem::createRenderPass() {
 	renderPassInfo.pSubpasses = &subpass;
 
 	if (vkCreateRenderPass(m_device, &renderPassInfo, nullptr, &m_renderPass) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create render pass!");
-		std::abort();
+		LOG_CRITICAL("Failed to create render pass!");
 	}
 }
 
 /***********************************************************************************/
 void RenderSystem::createDescriptorSetLayout() {
+	// For MVP ubo
 	VkDescriptorSetLayoutBinding uboLayoutBinding {};
 	uboLayoutBinding.binding = 0;
 	uboLayoutBinding.descriptorCount = 1;
@@ -523,8 +525,7 @@ void RenderSystem::createDescriptorSetLayout() {
 	layoutInfo.pBindings = bindings.data();
 
 	if (vkCreateDescriptorSetLayout(m_device, &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create descriptor set layout.");
-		std::abort();
+		LOG_CRITICAL("Failed to create descriptor set layout.");
 	}
 
 }
@@ -635,8 +636,7 @@ void RenderSystem::createGraphicsPipeline() {
 	pipelineLayoutInfo.pSetLayouts = &m_descriptorSetLayout;
 
 	if (vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create pipeline layout.");
-		std::abort();
+		LOG_CRITICAL("Failed to create pipeline layout.");
 	}
 
 	// Now actually create the damn pipeline
@@ -657,8 +657,7 @@ void RenderSystem::createGraphicsPipeline() {
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
 	if (vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_graphicsPipeline) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create graphics pipeline.");
-		std::abort();
+		LOG_CRITICAL("Failed to create graphics pipeline.");
 	}
 
 	// Cleanup
@@ -686,8 +685,7 @@ void RenderSystem::createFramebuffers() {
 		framebufferInfo.layers = 1;
 
 		if (vkCreateFramebuffer(m_device, &framebufferInfo, nullptr, &m_swapChainFramebuffers[i]) != VK_SUCCESS) {
-			spdlog::get("console")->error("Failed to create framebuffer.");
-			std::abort();
+			LOG_CRITICAL("Failed to create framebuffer.");
 		}
 	}
 }
@@ -703,8 +701,7 @@ void RenderSystem::createCommandPools() {
 	drawingPoolInfo.flags = 0; // Optional
 
 	if (vkCreateCommandPool(m_device, &drawingPoolInfo, nullptr, &m_drawingCommandPool) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create command pool.");
-		std::abort();
+		LOG_CRITICAL("Failed to create command pool.");
 	}
 
 	// Memory Transfer Pool (for short-lived buffer creation)
@@ -714,8 +711,7 @@ void RenderSystem::createCommandPools() {
 	memoryTransferPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 
 	if (vkCreateCommandPool(m_device, &memoryTransferPoolInfo, nullptr, &m_memoryTransferCommandPool) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create memory transfer command pool.");
-		std::abort();
+		LOG_CRITICAL("Failed to create memory transfer command pool.");
 	}
 }
 
@@ -740,14 +736,13 @@ void RenderSystem::createTextureImage() {
 	int texWidth, texHeight, texChannels;
 	auto* pixels = stbi_load("Data/Textures/03e.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	if (!pixels) {
-		spdlog::get("console")->error("Failed to load image.");
-		std::abort();
+		LOG_CRITICAL("Failed to load image.");
 	}
 
 	const VkDeviceSize imageSize = texWidth * texHeight * 4;
 	VkBuffer stagingBuffer;
 	VmaAllocation allocation;
-	auto allocInfo = createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+	const auto allocInfo = createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 		stagingBuffer, 
 		allocation);
 
@@ -795,50 +790,57 @@ void RenderSystem::createTextureSampler() {
 	samplerInfo.maxLod = 0.0f;
 
 	if (vkCreateSampler(m_device, &samplerInfo, nullptr, &m_textureSampler) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create texture sampler.");
-		std::abort();
+		LOG_CRITICAL("Failed to create texture sampler.");
 	}
 
 }
 
 /***********************************************************************************/
-void RenderSystem::createVertexBuffer() {
+void RenderSystem::prepareMeshes() {
+	for (auto& mesh : m_meshes) {
+		createVertexBuffer(mesh);
+		createIndexBuffer(mesh);
+	}
+}
+
+/***********************************************************************************/
+void RenderSystem::createVertexBuffer(MeshPtr& mesh) {
 	
-	const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+	const VkDeviceSize bufferSize = sizeof(mesh->vertices[0]) * mesh->vertices.size();
 	VkBuffer stagingBuffer;
 	VmaAllocation allocation;
-	auto allocInfo = createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+	const auto allocInfo = createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 		stagingBuffer, 
 		allocation);
 
-	std::memcpy(allocInfo.pMappedData, vertices.data(), static_cast<std::size_t>(bufferSize));
+	std::memcpy(allocInfo.pMappedData, mesh->vertices.data(), static_cast<std::size_t>(bufferSize));
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-		m_vertexBuffer, 
-		m_vertexBufferAllocation);
+		mesh->vertexBuffer, 
+		mesh->vertexBufferAllocation);
 
-	copyBuffer(stagingBuffer, m_vertexBuffer, bufferSize);
+	copyBuffer(stagingBuffer, mesh->vertexBuffer, bufferSize);
 
 	// Cleanup
 	vmaDestroyBuffer(m_allocator, stagingBuffer, allocation);
 }
 
 /***********************************************************************************/
-void RenderSystem::createIndexBuffer() {
-	const VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+void RenderSystem::createIndexBuffer(MeshPtr& mesh) {
+	const VkDeviceSize bufferSize = sizeof(mesh->indices[0]) * mesh->indices.size();
 
 	VkBuffer stagingBuffer;
 	VmaAllocation allocation;
-	auto allocInfo = createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+	const auto allocInfo = createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 		stagingBuffer, 
 		allocation);
 
-	std::memcpy(allocInfo.pMappedData, indices.data(), static_cast<std::size_t>(bufferSize));
+	std::memcpy(allocInfo.pMappedData, mesh->indices.data(), static_cast<std::size_t>(bufferSize));
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
-		m_indexBuffer, m_indexBufferAllocation);
+		mesh->indexBuffer, mesh->indexBufferAllocation);
 
-	copyBuffer(stagingBuffer, m_indexBuffer, bufferSize);
+	copyBuffer(stagingBuffer, mesh->indexBuffer, bufferSize);
 
 
 	vmaDestroyBuffer(m_allocator, stagingBuffer, allocation);
@@ -867,8 +869,7 @@ void RenderSystem::createDescriptorPools() {
 	poolInfo.maxSets = 1;
 
 	if (vkCreateDescriptorPool(m_device, &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create descriptor pool.");
-		std::abort();
+		LOG_CRITICAL("Failed to create descriptor pool.");
 	}
 }
 
@@ -883,8 +884,7 @@ void RenderSystem::createDescriptorSet() {
 	allocInfo.pSetLayouts = layouts;
 
 	if (vkAllocateDescriptorSets(m_device, &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to allocate descriptor set.");
-		std::abort();
+		LOG_CRITICAL("Failed to allocate descriptor set.");
 	}
 
 	// UBO
@@ -931,8 +931,7 @@ void RenderSystem::createCommandBuffers() {
 	allocInfo.commandBufferCount = static_cast<std::uint32_t>(m_commandBuffers.size());
 
 	if (vkAllocateCommandBuffers(m_device, &allocInfo, m_commandBuffers.data()) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to allocate command buffers.");
-		std::abort();
+		LOG_ERROR("Failed to allocate command buffers.");
 	}
 
 	for (auto i = 0; i < m_commandBuffers.size(); ++i) {
@@ -964,17 +963,16 @@ void RenderSystem::createCommandBuffers() {
 		const VkBuffer vertexBuffers[] { m_vertexBuffer };
 		const VkDeviceSize offsets[] { 0 };
 		vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 		// Bind UBO
 		vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
 
-		vkCmdDrawIndexed(m_commandBuffers[i], static_cast<std::uint32_t>(indices.size()), 1, 0, 0, 0);
+		vkCmdDrawIndexed(m_commandBuffers[i], static_cast<std::uint32_t>(mindices.size()), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(m_commandBuffers[i]);
 
 		if (vkEndCommandBuffer(m_commandBuffers[i]) != VK_SUCCESS) {
-			spdlog::get("console")->error("Failed to record command buffer.");
-			std::abort();
+			LOG_CRITICAL("Failed to record command buffer.");
 		}
 	}
 }
@@ -987,8 +985,7 @@ void RenderSystem::createSemaphores() {
 	if (vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_imageAvailableSemaphore) != VK_SUCCESS ||
 		vkCreateSemaphore(m_device, &semaphoreInfo, nullptr, &m_renderFinishedSemaphore) != VK_SUCCESS) {
 
-		spdlog::get("console")->error("Failed to create swapchain semaphores.");
-		std::abort();
+		LOG_CRITICAL("Failed to create swapchain semaphores.");
 	}
 }
 
@@ -1079,8 +1076,7 @@ std::uint32_t RenderSystem::findMemoryType(const std::uint32_t typeFilter, const
 		}
 	}
 
-	spdlog::get("console")->error("Failed to find suitable memory type.");
-	std::abort();
+	LOG_CRITICAL("Failed to find suitable memory type.");
 }
 
 /***********************************************************************************/
@@ -1209,8 +1205,7 @@ VmaAllocationInfo RenderSystem::createBuffer(const VkDeviceSize size, const VkBu
 	VmaAllocationInfo allocInfo;
 
 	if (vmaCreateBuffer(m_allocator, &bufferInfo, &allocCreateInfo, &buffer, &allocation, &allocInfo) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create buffer.");
-		std::abort();
+		LOG_CRITICAL("Failed to create buffer.");
 	}
 
 	return allocInfo;
@@ -1264,8 +1259,7 @@ void RenderSystem::createImage(const std::uint32_t width, const std::uint32_t he
 	allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	
 	if (vmaCreateImage(m_allocator, &imageInfo, &allocInfo, &image, &allocation, nullptr) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create image.");
-		std::abort();
+		LOG_CRITICAL("Failed to create image.");
 	}
 }
 
@@ -1327,8 +1321,7 @@ void RenderSystem::transitionImageLayout(const VkImage image, const VkFormat for
 		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	}
 	else {
-		spdlog::get("console")->error("Unsupported layout transition.");
-		std::abort();
+		LOG_CRITICAL("Unsupported layout transition.");
 	}
 
 
@@ -1392,8 +1385,7 @@ VkImageView RenderSystem::createImageView(const VkImage image, const VkFormat fo
 
 	VkImageView imageView;
 	if (vkCreateImageView(m_device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create texture image view.");
-		std::abort();
+		LOG_CRITICAL("Failed to create texture image view.");
 	}
 
 	return imageView;
@@ -1415,8 +1407,7 @@ VkFormat RenderSystem::findSupportedFormat(const std::vector<VkFormat>& candidat
 		}
 	}
 
-	spdlog::get("console")->error("Failed to find supported image format.");
-	std::abort();
+	LOG_CRITICAL("Failed to find supported image format.");
 }
 
 /***********************************************************************************/
@@ -1438,9 +1429,8 @@ std::vector<char> RenderSystem::readShaderFile(const std::string_view filename) 
 	std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
 
 	if (!file.is_open()) {
-		spdlog::get("console")->error("Failed to open file: ");
-		spdlog::get("console")->error(filename.data());
-		std::abort();
+		LOG_ERROR("Failed to open file: ");
+		LOG_CRITICAL(filename.data());
 	}
 
 	const auto fileSize = static_cast<std::size_t>(file.tellg());
@@ -1462,8 +1452,7 @@ VkShaderModule RenderSystem::createShaderModule(const std::vector<char>& code) c
 
 	VkShaderModule shaderModule;
 	if (vkCreateShaderModule(m_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create shader module!");
-		std::abort();
+		LOG_CRITICAL("Failed to create shader module!");
 	}
 
 	return shaderModule;
@@ -1478,8 +1467,7 @@ void RenderSystem::createDebugCallback() {
 	createInfo.pfnCallback = debugCallback;
 
 	if (CreateDebugReportCallbackEXT(m_instance, &createInfo, nullptr, &m_debugCallback) != VK_SUCCESS) {
-		spdlog::get("console")->error("Failed to create debug callback.");
-		std::abort();
+		LOG_CRITICAL("Failed to create debug callback.");
 	}
 }
 

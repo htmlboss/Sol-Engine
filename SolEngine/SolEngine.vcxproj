@@ -33,6 +33,7 @@
     <ClInclude Include="Core\WindowSystem.h" />
     <ClInclude Include="Graphics\Mesh.h" />
     <ClInclude Include="Graphics\Vertex.h" />
+    <ClInclude Include="Log\Log.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -91,7 +92,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)SolEngine/ThirdParty/stb/;$(SolutionDir)SolEngine/;$(SolutionDir)SolEngine/ThirdParty/spdlog/include/;$(SolutionDir)SolEngine/ThirdParty/glm/;$(SolutionDir)SolEngine/ThirdParty/glfw/include/;C:\VulkanSDK\1.0.65.0\Include;$(SolutionDir)SolEngine/ThirdParty/vulkan-memory-allocator/;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)SolEngine/ThirdParty/stb/;$(SolutionDir)SolEngine/;$(SolutionDir)SolEngine/ThirdParty/spdlog/include/;$(SolutionDir)SolEngine/ThirdParty/glm/;$(SolutionDir)SolEngine/ThirdParty/glfw/include/;C:\VulkanSDK\1.0.65.0\Include;$(SolutionDir)SolEngine/ThirdParty/vulkan-memory-allocator/;$(SolutionDir)SolEngine/ThirdParty/tinyobj/;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)SolEngine/ThirdParty/glfw/lib/;C:\VulkanSDK\1.0.65.0\Lib\;$(LibraryPath)</LibraryPath>
     <EnableCppCoreCheck>true</EnableCppCoreCheck>
   </PropertyGroup>
@@ -100,7 +101,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)SolEngine/ThirdParty/stb/;$(SolutionDir)SolEngine/;$(SolutionDir)SolEngine/ThirdParty/spdlog/include/;$(SolutionDir)SolEngine/ThirdParty/glm/;$(SolutionDir)SolEngine/ThirdParty/glfw/include/;C:\VulkanSDK\1.0.65.0\Include;$(SolutionDir)SolEngine/ThirdParty/vulkan-memory-allocator/;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)SolEngine/ThirdParty/stb/;$(SolutionDir)SolEngine/;$(SolutionDir)SolEngine/ThirdParty/spdlog/include/;$(SolutionDir)SolEngine/ThirdParty/glm/;$(SolutionDir)SolEngine/ThirdParty/glfw/include/;C:\VulkanSDK\1.0.65.0\Include;$(SolutionDir)SolEngine/ThirdParty/vulkan-memory-allocator/;$(SolutionDir)SolEngine/ThirdParty/tinyobj/;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)SolEngine/ThirdParty/glfw/lib/;C:\VulkanSDK\1.0.65.0\Lib\;$(LibraryPath)</LibraryPath>
     <EnableCppCoreCheck>true</EnableCppCoreCheck>
   </PropertyGroup>

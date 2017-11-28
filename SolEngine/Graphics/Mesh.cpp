@@ -3,17 +3,18 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-#include "Log/Log.h"
+#include "Logging/Log.h"
 
 #include <unordered_map>
 
 /***********************************************************************************/
-Mesh::Mesh(const std::vector<Vertex>& verts, const std::vector<std::uint32_t>& inds) : vertices(verts), indices(inds) {
+Mesh::Mesh(const std::vector<Vertex>& verts, const std::vector<std::uint32_t>& inds, const std::string_view imgPath) : vertices(verts), indices(inds), texture(imgPath) {
 
 }
 
 /***********************************************************************************/
 MeshPtr Mesh::loadModel(const std::string_view modelPath, const std::string_view texturePath) {
+	LOG_INFO("Loading model...");
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -31,13 +32,13 @@ MeshPtr Mesh::loadModel(const std::string_view modelPath, const std::string_view
 		for (const auto& index : shape.mesh.indices) {
 			const Vertex vertex(
 			{	
-				attrib.vertices[3 * index.vertex_index + 0],
+				attrib.vertices[3 * index.vertex_index],
 				attrib.vertices[3 * index.vertex_index + 1],
 				attrib.vertices[3 * index.vertex_index + 2] 
 			},
 			{1.0f, 1.0f, 1.0f}, // Color
 			{
-				attrib.texcoords[2 * index.texcoord_index + 0],
+				attrib.texcoords[2 * index.texcoord_index],
 				1.0f - attrib.texcoords[2 * index.texcoord_index + 1] // Flip origin to top-left
 			}
 			);
@@ -51,5 +52,5 @@ MeshPtr Mesh::loadModel(const std::string_view modelPath, const std::string_view
 		}
 	}
 
-	return std::make_shared<Mesh>(vertices, indices);
+	return std::make_shared<Mesh>(vertices, indices, texturePath);
 }

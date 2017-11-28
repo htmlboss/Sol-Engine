@@ -23,6 +23,7 @@
     <ClCompile Include="Core\SolEngine.cpp" />
     <ClCompile Include="Core\WindowSystem.cpp" />
     <ClCompile Include="Graphics\Mesh.cpp" />
+    <ClCompile Include="Graphics\Texture.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -32,6 +33,7 @@
     <ClInclude Include="Core\SolEngine.h" />
     <ClInclude Include="Core\WindowSystem.h" />
     <ClInclude Include="Graphics\Mesh.h" />
+    <ClInclude Include="Graphics\Texture.h" />
     <ClInclude Include="Graphics\Vertex.h" />
     <ClInclude Include="Log\Log.h" />
   </ItemGroup>

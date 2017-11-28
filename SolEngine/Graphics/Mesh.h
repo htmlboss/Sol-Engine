@@ -1,14 +1,13 @@
 #pragma once
 
 #include "Vertex.h"
+#include "Texture.h"
 
 #include <string_view>
 #include <memory>
 
-#include <vk_mem_alloc.h>
-
 struct Mesh {
-	Mesh(const std::vector<Vertex>& verts, const std::vector<std::uint32_t>& inds);
+	Mesh(const std::vector<Vertex>& verts, const std::vector<std::uint32_t>& inds, const std::string_view imgpath);
 
 	static std::shared_ptr<Mesh> loadModel(const std::string_view modelPath, const std::string_view texturePath);
 
@@ -17,6 +16,7 @@ struct Mesh {
 	
 	VkBuffer vertexBuffer, indexBuffer;
 	VmaAllocation vertexBufferAllocation, indexBufferAllocation;
+	Texture texture;
 };
 
 using MeshPtr = std::shared_ptr<Mesh>;

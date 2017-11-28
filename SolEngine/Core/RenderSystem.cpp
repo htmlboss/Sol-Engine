@@ -126,12 +126,9 @@ void RenderSystem::init() {
 	createCommandPools();
 	createDepthAttachment();
 	createFramebuffers(); // Needs to be called after depth attachment is created.
-	createTextureImage();
+	prepareMeshes();
 	createTextureImageView();
 	createTextureSampler();
-	prepareMeshes(); // TODO: Process mesh vector
-	//createVertexBuffer();
-	//createIndexBuffer();
 	createUniformBuffer();
 	createDescriptorPools();
 	createDescriptorSet();
@@ -732,9 +729,9 @@ void RenderSystem::createDepthAttachment() {
 }
 
 /***********************************************************************************/
-void RenderSystem::createTextureImage() {
+void RenderSystem::createTextureImage(const std::string_view imagePath) {
 	int texWidth, texHeight, texChannels;
-	auto* pixels = stbi_load("Data/Textures/03e.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	auto* pixels = stbi_load(imagePath.data(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	if (!pixels) {
 		LOG_CRITICAL("Failed to load image.");
 	}
@@ -800,11 +797,12 @@ void RenderSystem::prepareMeshes() {
 	for (auto& mesh : m_meshes) {
 		createVertexBuffer(mesh);
 		createIndexBuffer(mesh);
+		createTextureImage(mesh->texture.path);
 	}
 }
 
 /***********************************************************************************/
-void RenderSystem::createVertexBuffer(MeshPtr& mesh) {
+void RenderSystem::createVertexBuffer(MeshPtr& mesh) const {
 	
 	const VkDeviceSize bufferSize = sizeof(mesh->vertices[0]) * mesh->vertices.size();
 	VkBuffer stagingBuffer;
@@ -826,7 +824,7 @@ void RenderSystem::createVertexBuffer(MeshPtr& mesh) {
 }
 
 /***********************************************************************************/
-void RenderSystem::createIndexBuffer(MeshPtr& mesh) {
+void RenderSystem::createIndexBuffer(MeshPtr& mesh) const {
 	const VkDeviceSize bufferSize = sizeof(mesh->indices[0]) * mesh->indices.size();
 
 	VkBuffer stagingBuffer;
@@ -957,17 +955,18 @@ void RenderSystem::createCommandBuffers() {
 
 		vkCmdBeginRenderPass(m_commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+			vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
 
-		// Bind Vertex Buffer
-		const VkBuffer vertexBuffers[] { m_vertexBuffer };
-		const VkDeviceSize offsets[] { 0 };
-		vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(m_commandBuffers[i], m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-		// Bind UBO
-		vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+			const VkBuffer vertexBuffers[] { m_meshes[0]->vertexBuffer };
+			const VkDeviceSize offsets[] { 0 };
+			
+			vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-		vkCmdDrawIndexed(m_commandBuffers[i], static_cast<std::uint32_t>(mindices.size()), 1, 0, 0, 0);
+			vkCmdBindIndexBuffer(m_commandBuffers[i], m_meshes[0]->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+			// Bind UBO
+			vkCmdBindDescriptorSets(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
+			// Draw
+			vkCmdDrawIndexed(m_commandBuffers[i], static_cast<std::uint32_t>(m_meshes[0]->indices.size()), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(m_commandBuffers[i]);
 

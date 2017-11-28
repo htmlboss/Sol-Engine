@@ -64,17 +64,18 @@ private:
 	void createCommandPools();
 	// Setup and configure depth images for depth buffering
 	void createDepthAttachment();
-	void createTextureImage();
+	void createTextureImage(const std::string_view imagePath);
 	void createTextureImageView();
 	// The sampler is a distinct object that provides an interface to extract colors from a texture. 
 	// It can be applied to any image you want, whether it is 1D, 2D or 3D. 
 	// This is different from many older APIs, which combined texture images and filtering into a single state.
+	// Samplers can be shared across different textures.
 	void createTextureSampler();
 	// Loops through given vector of MeshPtr's and instantiates the Vulkan-specific members (allocates memory, 
 	// create index + vertex buffers, etc).
 	void prepareMeshes();
-	void createVertexBuffer(MeshPtr& mesh);
-	void createIndexBuffer(MeshPtr& mesh);
+	void createVertexBuffer(MeshPtr& mesh) const;
+	void createIndexBuffer(MeshPtr& mesh) const;
 	void createUniformBuffer();
 	void createDescriptorPools();
 	void createDescriptorSet();

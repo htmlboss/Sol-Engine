@@ -2,7 +2,7 @@
 #include "Input.h"
 
 #include <GLFW/glfw3.h>
-#include <Log/Log.h>
+#include "Logging/Log.h"
 
 GLFWwindow* WindowSystem::m_window = nullptr;
 

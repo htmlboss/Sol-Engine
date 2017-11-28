@@ -4,7 +4,7 @@
 #include "WindowSystem.h"
 #include "Input.h"
 #include "Graphics/Vertex.h"
-#include "Log/Log.h"
+#include "Logging/Log.h"
 
 #include <GLFW/GLFW3.h>
 

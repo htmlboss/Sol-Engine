@@ -127,7 +127,6 @@ void RenderSystem::init() {
 	createDepthAttachment();
 	createFramebuffers(); // Needs to be called after depth attachment is created.
 	prepareMeshes();
-	createTextureImageView();
 	createTextureSampler();
 	createUniformBuffer();
 	createDescriptorPools();
@@ -209,20 +208,19 @@ void RenderSystem::update(const float delta) {
 void RenderSystem::shutdown() {
 	cleanupSwapChain();
 
-	// Cleanup any image textures
 	vkDestroySampler(m_device, m_textureSampler, nullptr);
-	vkDestroyImageView(m_device, m_textureImageView, nullptr);
-	// VMA cleans object and memory allocation all-in-one
-	vmaDestroyImage(m_allocator, m_textureImage, m_textureAllocation);
-
-	vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
 
 	// Cleanup mesh resources
 	for (auto& mesh : m_meshes) {
+		// VMA cleans object and memory allocation all-in-one
 		vmaDestroyBuffer(m_allocator, mesh->indexBuffer, mesh->indexBufferAllocation);
 		vmaDestroyBuffer(m_allocator, mesh->vertexBuffer, mesh->vertexBufferAllocation);
+		vkDestroyImageView(m_device, mesh->texture.imageView, nullptr);
+		vmaDestroyImage(m_allocator, mesh->texture.image, mesh->texture.imageAllocation);
 	}
+
+	vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
 	
 	vmaDestroyBuffer(m_allocator, m_uniformBuffer, m_uniformBufferAllocation);
 
@@ -729,14 +727,13 @@ void RenderSystem::createDepthAttachment() {
 }
 
 /***********************************************************************************/
-void RenderSystem::createTextureImage(const std::string_view imagePath) {
-	int texWidth, texHeight, texChannels;
-	auto* pixels = stbi_load(imagePath.data(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+void RenderSystem::createTextureImage(Texture& texture) {
+	auto* pixels = stbi_load(texture.path.data(), &texture.width, &texture.height, &texture.numChannels, STBI_rgb_alpha);
 	if (!pixels) {
 		LOG_CRITICAL("Failed to load image.");
 	}
 
-	const VkDeviceSize imageSize = texWidth * texHeight * 4;
+	const VkDeviceSize imageSize = texture.width * texture.height * 4;
 	VkBuffer stagingBuffer;
 	VmaAllocation allocation;
 	const auto allocInfo = createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
@@ -747,23 +744,23 @@ void RenderSystem::createTextureImage(const std::string_view imagePath) {
 
 	stbi_image_free(pixels);
 
-	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, 
+	createImage(texture.width, texture.height, VK_FORMAT_R8G8B8A8_UNORM, 
 		VK_IMAGE_TILING_OPTIMAL, 
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
-		m_textureImage, 
-		m_textureAllocation);
+		texture.image, 
+		texture.imageAllocation);
 
-	transitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copyBufferToImage(stagingBuffer, m_textureImage, static_cast<std::uint32_t>(texWidth), static_cast<std::uint32_t>(texHeight));
+	transitionImageLayout(texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	copyBufferToImage(stagingBuffer, texture.image, static_cast<std::uint32_t>(texture.width), static_cast<std::uint32_t>(texture.height));
 	// One more transition so the shader can read from it
-	transitionImageLayout(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	transitionImageLayout(texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	vmaDestroyBuffer(m_allocator, stagingBuffer, allocation);
 }
 
 /***********************************************************************************/
-void RenderSystem::createTextureImageView() {
-	m_textureImageView = createImageView(m_textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+void RenderSystem::createTextureImageView(Texture& texture) {
+	texture.imageView = createImageView(texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 /***********************************************************************************/
@@ -797,7 +794,8 @@ void RenderSystem::prepareMeshes() {
 	for (auto& mesh : m_meshes) {
 		createVertexBuffer(mesh);
 		createIndexBuffer(mesh);
-		createTextureImage(mesh->texture.path);
+		createTextureImage(mesh->texture);
+		createTextureImageView(mesh->texture);
 	}
 }
 
@@ -1225,11 +1223,11 @@ void RenderSystem::copyBuffer(const VkBuffer src, const VkBuffer dest, const VkD
 void RenderSystem::updateUniformBuffer(const float dt) const {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
+	const auto currentTime = std::chrono::high_resolution_clock::now();
+	const auto time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
 
 	UniformBufferObject ubo {};
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(30.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), m_swapChainExtent.width / static_cast<float>(m_swapChainExtent.height), 0.1f, 10.0f);
 	ubo.proj[1][1] *= -1; // Prevent image from being rendered upside down
@@ -1444,7 +1442,7 @@ std::vector<char> RenderSystem::readShaderFile(const std::string_view filename) 
 
 /***********************************************************************************/
 VkShaderModule RenderSystem::createShaderModule(const std::vector<char>& code) const {
-	VkShaderModuleCreateInfo createInfo = {};
+	VkShaderModuleCreateInfo createInfo {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	createInfo.codeSize = code.size();
 	createInfo.pCode = reinterpret_cast<const std::uint32_t*>(code.data());

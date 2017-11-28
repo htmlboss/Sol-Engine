@@ -9,7 +9,6 @@
 
 /***********************************************************************************/
 Mesh::Mesh(const std::vector<Vertex>& verts, const std::vector<std::uint32_t>& inds, const std::string_view imgPath) : vertices(verts), indices(inds), texture(imgPath) {
-
 }
 
 /***********************************************************************************/

@@ -8,6 +8,7 @@ struct Texture {
 	explicit Texture(const std::string_view Path) : path(Path) {}
 
 	const std::string_view path;
+	int width, height, numChannels;
 
 	VkImage image;
 	VmaAllocation imageAllocation;

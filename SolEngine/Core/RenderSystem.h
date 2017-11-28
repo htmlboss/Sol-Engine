@@ -3,7 +3,6 @@
 #include "ISystem.h"
 #include "Graphics/Mesh.h"
 
-#include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
 #include <vector>
@@ -64,8 +63,8 @@ private:
 	void createCommandPools();
 	// Setup and configure depth images for depth buffering
 	void createDepthAttachment();
-	void createTextureImage(const std::string_view imagePath);
-	void createTextureImageView();
+	void createTextureImage(Texture& texture);
+	void createTextureImageView(Texture& texture);
 	// The sampler is a distinct object that provides an interface to extract colors from a texture. 
 	// It can be applied to any image you want, whether it is 1D, 2D or 3D. 
 	// This is different from many older APIs, which combined texture images and filtering into a single state.
@@ -138,7 +137,7 @@ private:
 
 	// Memory Allocation
 	VmaAllocator m_allocator;
-	VmaAllocation m_textureAllocation, m_depthAllocation, m_uniformBufferAllocation;
+	VmaAllocation m_depthAllocation, m_uniformBufferAllocation;
 	VmaAllocationInfo m_uniformBufferAllocInfo;
 
 	VkQueue m_graphicsQueue, m_presentQueue;
@@ -163,8 +162,8 @@ private:
 	VkSemaphore m_imageAvailableSemaphore;
 	VkSemaphore m_renderFinishedSemaphore;
 
-	VkImage m_textureImage, m_depthImage;
-	VkImageView m_textureImageView, m_depthImageView;
+	VkImage m_depthImage;
+	VkImageView m_depthImageView;
 	VkSampler m_textureSampler;
 	VkBuffer m_uniformBuffer;
 

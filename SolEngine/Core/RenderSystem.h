@@ -1,9 +1,8 @@
 #pragma once
 
 #include "ISystem.h"
+#include "Graphics/Device.h"
 #include "Graphics/Mesh.h"
-
-#include <vk_mem_alloc.h>
 
 #include <vector>
 
@@ -48,8 +47,6 @@ private:
 	// Core Vulkan setup
 	void createInstance();
 	void createSurface();
-	void pickPhysicalDevice();
-	void createLogicalDevice();
 	// Creates VMA
 	// https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/quick_start.html
 	void createMemoryAllocator();
@@ -85,11 +82,6 @@ private:
 	void recreateSwapChain();
 	
 	// Helper stuff
-	bool isDeviceSuitable(const VkPhysicalDevice device);
-	bool checkDeviceExtensionSupport(const VkPhysicalDevice device) const;
-	std::uint32_t findMemoryType(const std::uint32_t typeFilter, const VkMemoryPropertyFlags& properties) const;
-	QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice device) const;
-	SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice device) const;
 	std::vector<const char*> getRequiredExtensions() const;
 	// Wrapper for creating and begin recording to a command buffer.
 	VkCommandBuffer createAndBeginCommandBuffer(const VkCommandPool commandPool) const;
@@ -128,13 +120,9 @@ private:
 	std::vector<MeshPtr> m_meshes;
 
 	VkInstance m_instance;
-	
-	VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
-	VkDevice m_device;
-	const std::vector<const char*> m_deviceExtensions{
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
-	};
 
+	Device m_device;
+	
 	// Memory Allocation
 	VmaAllocator m_allocator;
 	VmaAllocation m_depthAllocation, m_uniformBufferAllocation;

@@ -34,6 +34,9 @@
     <ClCompile Include="Graphics\Texture.cpp">
       <Filter>Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics\Device.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\ISystem.h">
@@ -61,6 +64,9 @@
       <Filter>Log</Filter>
     </ClInclude>
     <ClInclude Include="Graphics\Texture.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Device.h">
       <Filter>Graphics</Filter>
     </ClInclude>
   </ItemGroup>

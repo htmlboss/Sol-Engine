@@ -371,9 +371,9 @@ void RenderSystem::createMemoryAllocator() {
 void RenderSystem::createSwapChain() {
 	const auto swapChainSupport = querySwapChainSupport(m_physicalDevice);
 
-	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-	VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-	VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, Input::GetInstance().GetWidth(), Input::GetInstance().GetHeight());
+	const VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+	const VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+	const VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, Input::GetInstance().GetWidth(), Input::GetInstance().GetHeight());
 
 	std::uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
 	if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
